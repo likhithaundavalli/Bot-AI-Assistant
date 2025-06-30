@@ -9,7 +9,7 @@ class BoltChatBot {
         this.initializeElements();
         this.addEventListeners();
         this.setupTextareaAutoResize();
-        this.loadSessionsList(); // Load all sessions
+        this.loadSessionsList();
         this.loadOrCreateSession();
     }
 
@@ -39,14 +39,23 @@ class BoltChatBot {
             this.sendMessage();
         });
 
-        // Optional: Clear chat button
-        const clearBtn = document.querySelector('.action-btn[title="Clear chat"]');
-        if (clearBtn) {
-            clearBtn.addEventListener('click', () => this.clearChatHistory());
-        }
-
         if (this.newChatBtn) {
             this.newChatBtn.addEventListener('click', () => this.startNewChat());
+        }
+
+        const closeBtn = document.getElementById('closeSidebarBtn');
+        const openBtn = document.getElementById('openSidebarBtn');
+        const sidebar = document.querySelector('.sidebar');
+
+        if (closeBtn) {
+            closeBtn.addEventListener('click', () => {
+                sidebar.classList.remove('open');
+            });
+        }
+        if (openBtn) {
+            openBtn.addEventListener('click', () => {
+                sidebar.classList.add('open');
+            });
         }
     }
 
@@ -68,29 +77,39 @@ class BoltChatBot {
         this.sendBtn.disabled = !hasText || this.isTyping;
     }
 
+    createWelcomeMessage() {
+        const welcomeDiv = document.createElement('div');
+        welcomeDiv.className = 'welcome-message';
+        welcomeDiv.innerHTML = `
+            <div class="welcome-icon">
+                <i class="fas fa-bolt" aria-hidden="true"></i>
+            </div>
+            <h2>Welcome to Bolt AI</h2>
+            <p>I'm here to help you with coding, development, and technical questions. What would you like to work on today?</p>
+        `;
+        return welcomeDiv;
+    }
+
     async loadOrCreateSession() {
-        // Try to reuse session from localStorage
-        this.sessionId = localStorage.getItem('bolt_session_id');
-        if (!this.sessionId) {
-            // Create a new session by sending a dummy message (or just generate a uuid)
-            this.sessionId = null;
-        }
-        if (this.sessionId) {
-            await this.loadChatHistory();
-        }
+        // Always start with no session and show welcome message
+        localStorage.removeItem('bolt_session_id');
+        this.sessionId = null;
+        this.messages = [];
+        this.messagesContainer.innerHTML = '';
+        const welcomeMessage = this.createWelcomeMessage();
+        this.messagesContainer.appendChild(welcomeMessage);
+        // Do NOT call loadChatHistory here
     }
 
     async sendMessage() {
         const text = this.messageInput.value.trim();
         if (!text || this.isTyping) return;
 
-        // Hide welcome message if it exists
         const welcomeMessage = this.messagesContainer.querySelector('.welcome-message');
         if (welcomeMessage) {
             welcomeMessage.style.display = 'none';
         }
 
-        // Add user message to UI
         const userMessage = {
             id: this.generateId(),
             text: text,
@@ -100,15 +119,12 @@ class BoltChatBot {
         this.messages.push(userMessage);
         this.addMessageToDOM(userMessage);
 
-        // Clear input and reset height
         this.messageInput.value = '';
         this.messageInput.style.height = 'auto';
         this.updateSendButton();
 
-        // Show typing indicator
         this.showTypingIndicator();
 
-        // Send to backend
         try {
             const response = await this.fetchBotResponse(text);
             this.sessionId = response.session_id;
@@ -157,7 +173,15 @@ class BoltChatBot {
         if (!this.sessionId) return;
         try {
             const res = await fetch(`${this.apiBase}/chat/history/${this.sessionId}`);
-            if (!res.ok) throw new Error("No history");
+            if (!res.ok) {
+                if (res.status === 404) {
+                    // Session not found, clear and start new chat
+                    localStorage.removeItem('bolt_session_id');
+                    this.sessionId = null;
+                    await this.startNewChat();
+                }
+                throw new Error("No history");
+            }
             const data = await res.json();
             this.messages = [];
             this.messagesContainer.innerHTML = '';
@@ -176,20 +200,6 @@ class BoltChatBot {
         }
     }
 
-    async clearChatHistory() {
-        if (!this.sessionId) return;
-        try {
-            await fetch(`${this.apiBase}/chat/history/${this.sessionId}`, { method: "DELETE" });
-            this.messages = [];
-            this.messagesContainer.innerHTML = '';
-            // Optionally show welcome message again
-            const welcomeMessage = document.querySelector('.welcome-message');
-            if (welcomeMessage) welcomeMessage.style.display = '';
-        } catch (e) {
-            alert("Failed to clear chat history.");
-        }
-    }
-
     async loadSessionsList() {
         try {
             const res = await fetch(`${this.apiBase}/chat/sessions`);
@@ -198,13 +208,16 @@ class BoltChatBot {
             data.active_sessions.forEach(sessionId => {
                 const item = document.createElement('div');
                 item.className = 'chat-item';
-                item.textContent = sessionId === this.sessionId ? 'Current Chat' : `Chat: ${sessionId.slice(0, 8)}...`;
+                item.innerHTML = `
+                    <i class="fas fa-comment" aria-hidden="true"></i>
+                    <span>${sessionId === this.sessionId ? 'Current Chat' : `Chat: ${sessionId.slice(0, 8)}...`}</span>
+                `;
                 item.onclick = () => this.switchSession(sessionId);
                 if (sessionId === this.sessionId) item.classList.add('active');
                 this.sessionsList.appendChild(item);
             });
         } catch (e) {
-            this.sessionsList.innerHTML = '<div class="chat-item">No chats</div>';
+            this.sessionsList.innerHTML = '<div class="chat-item"><i class="fas fa-comment" aria-hidden="true"></i><span>No chats</span></div>';
         }
     }
 
@@ -216,12 +229,8 @@ class BoltChatBot {
         this.messages = [];
         this.messagesContainer.innerHTML = '';
         this.loadSessionsList();
-        // Show welcome message
-        const welcomeMessage = document.querySelector('.welcome-message');
-        if (welcomeMessage) {
-            this.messagesContainer.appendChild(welcomeMessage);
-            welcomeMessage.style.display = '';
-        }
+        const welcomeMessage = this.createWelcomeMessage();
+        this.messagesContainer.appendChild(welcomeMessage);
     }
 
     async switchSession(sessionId) {
@@ -244,24 +253,17 @@ class BoltChatBot {
         messageDiv.className = `message ${message.sender}-message`;
         messageDiv.setAttribute('data-message-id', message.id);
 
-        const avatarSVG = message.sender === 'bot'
-            ? '<polygon points="13,2 3,14 12,14 11,22 21,10 12,10 13,2"/>'
-            : '<path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>';
+        const avatarIcon = message.sender === 'bot' ? 'fa-bolt' : 'fa-user';
 
         const copyButton = `
             <button class="copy-btn" onclick="copyMessage(this)" title="Copy message">
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <rect width="14" height="14" x="8" y="8" rx="2" ry="2"/>
-                    <path d="m4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/>
-                </svg>
+                <i class="fas fa-copy" aria-hidden="true"></i>
             </button>
         `;
 
         messageDiv.innerHTML = `
             <div class="message-avatar ${message.sender}-avatar">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    ${avatarSVG}
-                </svg>
+                <i class="fas ${avatarIcon}" aria-hidden="true"></i>
             </div>
             <div class="message-content">
                 <div class="message-text">${this.escapeHtml(message.text)}</div>
@@ -310,7 +312,6 @@ class BoltChatBot {
     }
 }
 
-// Global functions
 function copyMessage(button) {
     const messageContent = button.closest('.message-content');
     const messageText = messageContent.querySelector('.message-text').textContent;
@@ -329,14 +330,24 @@ function sendMessage() {
     }
 }
 
-// Initialize the chatbot when the page loads
 document.addEventListener('DOMContentLoaded', () => {
     window.boltChatBot = new BoltChatBot();
-});
 
-// Handle window resize for mobile optimization
-window.addEventListener('resize', () => {
-    if (window.boltChatBot) {
-        // Optionally handle resize
+    const sidebar = document.querySelector('.sidebar');
+    const closeBtn = document.getElementById('closeSidebarBtn');
+    const openBtn = document.getElementById('openSidebarBtn');
+
+    if (closeBtn) {
+        closeBtn.addEventListener('click', () => {
+            sidebar.classList.remove('open');
+        });
     }
+    if (openBtn) {
+        openBtn.addEventListener('click', () => {
+            sidebar.classList.add('open');
+        });
+    }
+
+    // Always show the open button
+    openBtn.style.display = 'inline-block';
 });
