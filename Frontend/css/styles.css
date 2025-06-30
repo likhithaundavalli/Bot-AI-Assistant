@@ -609,3 +609,27 @@ body {
         padding: 10px 12px;
     }
 }
+
+.mic-btn {
+    width: 36px;
+    height: 36px;
+    background: #252525;
+    border: none;
+    border-radius: 8px;
+    color: #6b7280;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background 0.2s, color 0.2s;
+    font-size: 16px;
+    margin-right: 6px;
+}
+.mic-btn.active, .mic-btn:active {
+    background: #3b82f6;
+    color: #fff;
+}
+.mic-btn:hover {
+    background: #1f1f1f;
+    color: #3b82f6;
+}

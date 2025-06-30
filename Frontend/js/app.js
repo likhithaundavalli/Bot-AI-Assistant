@@ -57,6 +57,11 @@ class BoltChatBot {
                 sidebar.classList.add('open');
             });
         }
+
+        this.micBtn = document.getElementById('micBtn');
+        if (this.micBtn) {
+            this.micBtn.addEventListener('click', () => this.toggleVoiceInput());
+        }
     }
 
     setupTextareaAutoResize() {
@@ -309,6 +314,57 @@ class BoltChatBot {
                 "'": '&#39;'
             })[m];
         });
+    }
+
+    toggleVoiceInput() {
+        if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
+            alert("Sorry, your browser does not support speech recognition.");
+            return;
+        }
+        if (this.isListening) {
+            this.stopVoiceInput();
+            return;
+        }
+        this.startVoiceInput();
+    }
+
+    startVoiceInput() {
+        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+        this.recognition = new SpeechRecognition();
+        this.recognition.lang = 'en-US';
+        this.recognition.interimResults = false;
+        this.recognition.maxAlternatives = 1;
+
+        this.isListening = true;
+        this.micBtn.classList.add('active');
+        this.recognition.start();
+
+        this.recognition.onresult = (event) => {
+            const transcript = event.results[0][0].transcript;
+            this.messageInput.value = transcript;
+            this.updateSendButton();
+            this.isListening = false;
+            this.micBtn.classList.remove('active');
+        };
+
+        this.recognition.onerror = (event) => {
+            this.isListening = false;
+            this.micBtn.classList.remove('active');
+            alert('Voice recognition error: ' + event.error);
+        };
+
+        this.recognition.onend = () => {
+            this.isListening = false;
+            this.micBtn.classList.remove('active');
+        };
+    }
+
+    stopVoiceInput() {
+        if (this.recognition) {
+            this.recognition.stop();
+        }
+        this.isListening = false;
+        this.micBtn.classList.remove('active');
     }
 }
 
