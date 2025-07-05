@@ -20,6 +20,9 @@ class BoltChatBot {
         this.typingIndicator = document.getElementById('typingIndicator');
         this.sessionsList = document.getElementById('chatSessionsList');
         this.newChatBtn = document.getElementById('newChatBtn');
+        this.attachAudioBtn = document.getElementById('attachAudioBtn');
+        this.audioInput = document.getElementById('audioInput');
+        this.audioFileName = document.getElementById('audioFileName');
     }
 
     addEventListeners() {
@@ -61,6 +64,20 @@ class BoltChatBot {
         this.micBtn = document.getElementById('micBtn');
         if (this.micBtn) {
             this.micBtn.addEventListener('click', () => this.toggleVoiceInput());
+        }
+
+        if (this.attachAudioBtn && this.audioInput) {
+            this.attachAudioBtn.addEventListener('click', () => this.audioInput.click());
+            this.audioInput.addEventListener('change', (e) => {
+                if (e.target.files[0]) {
+                    this.audioFileName.textContent = e.target.files[0].name;
+                    this.audioFileName.style.display = 'inline-block';
+                } else {
+                    this.audioFileName.textContent = '';
+                    this.audioFileName.style.display = 'none';
+                }
+                this.handleAudioUpload(e);
+            });
         }
     }
 
@@ -328,6 +345,20 @@ class BoltChatBot {
         this.startVoiceInput();
     }
 
+    playMicSound(type = 'start') {
+        // Simple beep using Web Audio API
+        const ctx = new (window.AudioContext || window.webkitAudioContext)();
+        const o = ctx.createOscillator();
+        const g = ctx.createGain();
+        o.type = 'sine';
+        o.frequency.value = type === 'start' ? 880 : 440;
+        g.gain.value = 0.1;
+        o.connect(g).connect(ctx.destination);
+        o.start();
+        o.stop(ctx.currentTime + 0.15);
+        o.onended = () => ctx.close();
+    }
+
     startVoiceInput() {
         const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
         this.recognition = new SpeechRecognition();
@@ -337,6 +368,7 @@ class BoltChatBot {
 
         this.isListening = true;
         this.micBtn.classList.add('active');
+        this.playMicSound('start');
         this.recognition.start();
 
         this.recognition.onresult = (event) => {
@@ -365,6 +397,45 @@ class BoltChatBot {
         }
         this.isListening = false;
         this.micBtn.classList.remove('active');
+        this.playMicSound('stop');
+    }
+
+    async handleAudioUpload(e) {
+        const file = e.target.files[0];
+        if (!file) return;
+        const prompt = this.messageInput.value.trim();
+        if (!prompt) {
+            alert("Please enter your question or prompt about the audio.");
+            return;
+        }
+        // Show typing indicator
+        this.showTypingIndicator();
+        const formData = new FormData();
+        formData.append('audio', file);
+        formData.append('prompt', prompt);
+        try {
+            const res = await fetch(`${this.apiBase}/audio/query`, {
+                method: 'POST',
+                body: formData
+            });
+            if (!res.ok) throw new Error('Failed to process audio');
+            const data = await res.json();
+            // Show bot response
+            const botMessage = {
+                id: this.generateId(),
+                text: data.response,
+                sender: 'bot',
+                timestamp: new Date()
+            };
+            this.messages.push(botMessage);
+            this.hideTypingIndicator();
+            this.addMessageToDOM(botMessage);
+        } catch (err) {
+            this.hideTypingIndicator();
+            alert('Audio processing failed.');
+        }
+        this.audioFileName.textContent = '';
+        this.audioFileName.style.display = 'none';
     }
 }
 
