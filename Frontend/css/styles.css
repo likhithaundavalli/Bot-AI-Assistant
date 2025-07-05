@@ -609,3 +609,81 @@ body {
         padding: 10px 12px;
     }
 }
+
+.mic-btn {
+    width: 36px;
+    height: 36px;
+    background: #252525;
+    border: none;
+    border-radius: 8px;
+    color: #6b7280;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background 0.2s, color 0.2s;
+    font-size: 16px;
+    margin-right: 6px;
+}
+.mic-btn.active, .mic-btn:active {
+    background: #3b82f6;
+    color: #fff;
+}
+.mic-btn:hover {
+    background: #1f1f1f;
+    color: #3b82f6;
+}
+.mic-btn.active {
+    box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.2), 0 0 12px 2px #3b82f6;
+    animation: micPulse 1.2s infinite;
+}
+
+@keyframes micPulse {
+    0% {
+        box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.2), 0 0 12px 2px #3b82f6;
+    }
+    50% {
+        box-shadow: 0 0 0 12px rgba(59, 130, 246, 0.1), 0 0 24px 6px #3b82f6;
+    }
+    100% {
+        box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.2), 0 0 12px 2px #3b82f6;
+    }
+}
+
+.audio-file-name {
+    color: #a3e635;
+    font-size: 13px;
+    margin-left: 8px;
+    vertical-align: middle;
+    max-width: 120px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    display: inline-block;
+}
+
+.attach-audio-btn {
+    background: #23272f;
+    border: none;
+    color: #a3a3a3;
+    border-radius: 6px;
+    padding: 0 12px;
+    height: 40px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0 4px;
+    cursor: pointer;
+    transition: background 0.2s, color 0.2s;
+    font-size: 18px;
+}
+
+.attach-audio-btn:hover, .attach-audio-btn:focus {
+    background: #3b82f6;
+    color: #fff;
+}
+
+.input-field .attach-audio-btn i {
+    font-size: 18px;
+    pointer-events: none;
+}

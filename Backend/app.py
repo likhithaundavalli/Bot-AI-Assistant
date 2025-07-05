@@ -1,4 +1,4 @@
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, UploadFile, File, Form
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import List, Optional
@@ -139,6 +139,21 @@ async def create_new_session():
         "messages": []
     }
     return {"session_id": session_id}
+
+@app.post("/audio/query")
+async def audio_query(audio: UploadFile = File(...), prompt: str = Form(...)):
+    # Save file temporarily
+    with open("temp_audio.wav", "wb") as f:
+        f.write(await audio.read())
+    # Transcribe audio (replace with your actual transcription logic)
+    transcript = "Transcribed text from audio"  # TODO: implement transcription
+    # Compose the LLM prompt
+    full_prompt = f"{prompt}\n\nAudio transcript:\n{transcript}"
+    # Get response from LLM
+    response = chain.invoke({"context": "", "question": full_prompt})
+    # Remove temp file if needed
+    # os.remove("temp_audio.wav")
+    return {"response": response}
 
 if __name__ == "__main__":
     uvicorn.run(app, host="0.0.0.0", port=8000)
